@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["analyzer"]
+
+[workspace.dependencies]
+anyhow = "1.0.99"
+bincode = "2.0.1"
+
+[package]
+name = "qperf"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow.workspace = true
+bincode.workspace = true
+crossbeam-channel = "0.5.15"
+ctor = "0.5.0"
+qemu-plugin = { git = "https://github.com/novafacing/qemu-rs.git", version = "9.2.0-v0" }
+zerocopy = { version = "0.8.26", features = ["derive", "std"] }
