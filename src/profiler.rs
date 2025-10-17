@@ -6,15 +6,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::bail;
+use anyhow::{Context, bail};
 use crossbeam_channel::{Sender, bounded, unbounded};
 use qemu_plugin::{
     CallbackFlags, PluginId, TranslationBlock, VCPUIndex,
     install::{Args, Info, Value},
-    plugin::{HasCallbacks, Plugin, Register},
+    plugin::{HasCallbacks, Register},
     qemu_plugin_get_registers, qemu_plugin_read_memory_vaddr,
 };
-use zerocopy::FromBytes;
+use zerocopy::IntoBytes;
 
 use crate::reg::{AllRegs, Frame, Reg, Target};
 
@@ -76,7 +76,7 @@ impl Default for Profiler {
 }
 
 impl Profiler {
-    fn sample(&mut self, ip: u64) -> anyhow::Result<()> {
+    fn sample(&mut self, ip: u64) -> qemu_plugin::Result<()> {
         let now = Instant::now();
         let Ok(mut last) = self.last.try_lock() else {
             return Ok(());
@@ -90,15 +90,13 @@ impl Profiler {
         let mut fp = self.regs.read(self.target.reg(Reg::Fp))?;
 
         while fp > 0 && fp % 8 == 0 {
-            let Ok(frame) =
-                qemu_plugin_read_memory_vaddr(fp - self.target.fp_offset(), size_of::<Frame>())
-            else {
+            let mut frame = Frame::default();
+            if qemu_plugin_read_memory_vaddr(fp - self.target.fp_offset(), frame.as_mut_bytes())
+                .is_err()
+            {
                 break;
             };
-            let Ok(frame) = Frame::read_from_bytes(&frame) else {
-                break;
-            };
-            if qemu_plugin_read_memory_vaddr(frame.ip, 8).is_err() {
+            if qemu_plugin_read_memory_vaddr(frame.ip, &mut [0; 8]).is_err() {
                 break;
             }
 
@@ -106,14 +104,14 @@ impl Profiler {
             fp = frame.fp;
         }
 
-        self.tx.send(ips)?;
+        self.tx.send(ips).context("Failed to send profiling data")?;
 
         Ok(())
     }
 }
 
 impl HasCallbacks for Profiler {
-    fn on_vcpu_init(&mut self, _id: PluginId, _vcpu_id: VCPUIndex) -> anyhow::Result<()> {
+    fn on_vcpu_init(&mut self, _id: PluginId, _vcpu_id: VCPUIndex) -> qemu_plugin::Result<()> {
         self.regs = Arc::new(qemu_plugin_get_registers()?.into());
         Ok(())
     }
@@ -122,7 +120,7 @@ impl HasCallbacks for Profiler {
         &mut self,
         _id: PluginId,
         tb: TranslationBlock,
-    ) -> anyhow::Result<()> {
+    ) -> qemu_plugin::Result<()> {
         const KERNEL_MASK: u64 = 0xffff_0000_0000_0000;
 
         let ip = tb.vaddr();
@@ -146,7 +144,7 @@ impl HasCallbacks for Profiler {
 }
 
 impl Register for Profiler {
-    fn register(&mut self, id: PluginId, args: &Args, info: &Info) -> anyhow::Result<()> {
+    fn register(&mut self, id: PluginId, args: &Args, info: &Info) -> qemu_plugin::Result<()> {
         eprintln!(
             "QPerf loaded: id={:?} target={} current version={}",
             id, info.target_name, info.version.current
@@ -172,4 +170,4 @@ impl Register for Profiler {
     }
 }
 
-impl Plugin for Profiler {}
+qemu_plugin::register!(Profiler::default());

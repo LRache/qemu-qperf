@@ -5,6 +5,5 @@ edition = "2024"
 
 [dependencies]
 addr2line = "0.25.0"
-anyhow.workspace = true
 bincode.workspace = true
 clap = { version = "4.5.45", features = ["derive"] }

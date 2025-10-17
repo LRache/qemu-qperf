@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, error::Error, fmt, str::FromStr};
+use std::{collections::BTreeMap, str::FromStr};
 
-use anyhow::{Context, anyhow};
+use anyhow::{Context, anyhow, bail};
 use qemu_plugin::RegisterDescriptor;
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, IntoBytes};
 
 #[derive(Default)]
 pub struct AllRegs(BTreeMap<String, RegisterDescriptor<'static>>);
@@ -38,25 +38,14 @@ pub enum Target {
     LoongArch64,
 }
 
-#[derive(Debug)]
-pub struct TargetNoSupport;
-
-impl fmt::Display for TargetNoSupport {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Target not supported")
-    }
-}
-
-impl Error for TargetNoSupport {}
-
 impl FromStr for Target {
-    type Err = TargetNoSupport;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "riscv64" => Ok(Target::Riscv64),
             "loongarch64" => Ok(Target::LoongArch64),
-            _ => Err(TargetNoSupport),
+            _ => bail!("unknown target: {}", s),
         }
     }
 }
@@ -68,7 +57,7 @@ pub enum Reg {
     Fp,
 }
 
-#[derive(Debug, Clone, Copy, FromBytes)]
+#[derive(Debug, Default, Clone, Copy, FromBytes, IntoBytes)]
 #[repr(C)]
 pub struct Frame {
     pub fp: u64,

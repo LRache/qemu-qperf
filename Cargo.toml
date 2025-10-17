@@ -3,7 +3,6 @@ resolver = "3"
 members = ["analyzer"]
 
 [workspace.dependencies]
-anyhow = "1.0.99"
 bincode = "2.0.1"
 
 [package]
@@ -15,9 +14,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow.workspace = true
+anyhow = "1.0.100"
 bincode.workspace = true
 crossbeam-channel = "0.5.15"
-ctor = "0.5.0"
-qemu-plugin = { git = "https://github.com/novafacing/qemu-rs.git", version = "9.2.0-v0" }
+qemu-plugin = { version = "10.1.0-v2", features = ["anyhow"] }
 zerocopy = { version = "0.8.26", features = ["derive", "std"] }
