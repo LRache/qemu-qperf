@@ -78,4 +78,9 @@ There are many visualization options. Recommendations:
 - Use [flamegraph.pl](https://github.com/brendangregg/FlameGraph#3-flamegraphpl) or [inferno-flamegraph](https://github.com/jonhoo/inferno#as-a-binary) to generate a flame graph
 - **(Highly recommended)** Use [speedscope](https://www.speedscope.app/) for interactive viewing
 - Convert to the [pprof](https://profilerpedia.markhansen.co.nz/formats/pprof/) format via [pprofutils folded](https://github.com/felixge/pprofutils#folded) and use visualizers like [pprof.me](https://pprof.me/)  
-  Note: pprof.me can also handle the folded stacks format but it has a 2MB upload limit and files will usually exceed this limit. The pprof format is gzip compressed so it's much smaller. In contrast, speedscope processes files locally in your browser so there is no size limit. It also works for the pprof format!
+  Note: pprof.me can also handle the folded stacks format but it has a 2MB upload limit and files will usually exceed this limit. The pprof format is gzip compressed so it's much smaller. In contrast, speedscope processes files locally in your browser so there is no size limit. It also works with the pprof format!
+
+### Note for Starry OS
+
+- The default build options (`BACKTRACE=y`) should already enable all the debugging options qperf needs.
+- Use `make ... run QEMU_ARGS="-plugin libqperf.so"` to enable qperf plugin.
