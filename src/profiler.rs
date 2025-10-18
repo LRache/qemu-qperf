@@ -1,5 +1,6 @@
 use std::{
     fs::File,
+    path::PathBuf,
     sync::{Arc, Mutex},
     thread::spawn,
     time::{Duration, Instant},
@@ -19,8 +20,8 @@ use crate::reg::{AllRegs, Frame, Reg, Target};
 
 #[derive(Debug)]
 struct PluginArgs {
-    freq: u64,
-    out: String,
+    freq: u32,
+    out: PathBuf,
 }
 
 impl TryFrom<&Args> for PluginArgs {
@@ -32,9 +33,9 @@ impl TryFrom<&Args> for PluginArgs {
             .get("freq")
             .map(|v| {
                 if let Value::Integer(v) = v
-                    && *v > 0
+                    && let Ok(v) = (*v).try_into()
                 {
-                    Ok(*v as _)
+                    Ok(v)
                 } else {
                     bail!("invalid frequency")
                 }
@@ -46,13 +47,13 @@ impl TryFrom<&Args> for PluginArgs {
             .get("out")
             .map(|s| {
                 if let Value::String(s) = s {
-                    Ok(s.clone())
+                    Ok(s.into())
                 } else {
                     bail!("invalid output path")
                 }
             })
             .transpose()?
-            .unwrap_or("qperf.bin".to_string());
+            .unwrap_or("qperf.bin".into());
         Ok(PluginArgs { freq, out })
     }
 }
@@ -132,11 +133,7 @@ impl HasCallbacks for Profiler {
                 let ip = insn.vaddr();
                 let mut this = self.clone();
                 insn.register_execute_callback_flags(
-                    move |_| {
-                        if let Err(e) = this.sample(ip) {
-                            eprintln!("Error during sampling: {e}");
-                        }
-                    },
+                    move |_| this.sample(ip).expect("Failed to sample instruction"),
                     CallbackFlags::QEMU_PLUGIN_CB_R_REGS,
                 );
             });
@@ -148,16 +145,13 @@ impl HasCallbacks for Profiler {
 
 impl Register for Profiler {
     fn register(&mut self, id: PluginId, args: &Args, info: &Info) -> qemu_plugin::Result<()> {
-        eprintln!(
-            "QPerf loaded: id={:?} target={} current version={}",
-            id, info.target_name, info.version.current
-        );
+        eprintln!("QPerf loaded: id={id:?} info={info:?}");
         let args = PluginArgs::try_from(args)?;
         eprintln!("QPerf arguments: {args:?}");
+        let mut file = File::create(args.out).context("Failed to create output file")?;
 
         let (tx, rx) = unbounded();
         spawn(move || {
-            let mut file = File::create(args.out).expect("Failed to create output file");
             while let Ok(event) = rx.recv() {
                 bincode::encode_into_std_write(event, &mut file, bincode::config::standard())
                     .expect("Failed to write to output file");
