@@ -17,5 +17,8 @@ crate-type = ["cdylib"]
 anyhow = "1.0.100"
 bincode.workspace = true
 crossbeam-channel = "0.5.15"
-qemu-plugin = { version = "10.1.0-v2", features = ["anyhow"] }
+qemu-plugin = { version = "10.1.0-v2", default-features = false, features = [
+    "anyhow",
+    "plugin-api-v4",
+] }
 zerocopy = { version = "0.8.26", features = ["derive", "std"] }

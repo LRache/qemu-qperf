@@ -1,6 +1,5 @@
 use std::{
     fs::File,
-    io::BufWriter,
     sync::{Arc, Mutex},
     thread::spawn,
     time::{Duration, Instant},
@@ -21,16 +20,17 @@ use crate::reg::{AllRegs, Frame, Reg, Target};
 #[derive(Debug)]
 struct PluginArgs {
     freq: u64,
-    out_path: String,
+    out: String,
 }
 
 impl TryFrom<&Args> for PluginArgs {
     type Error = anyhow::Error;
 
     fn try_from(args: &Args) -> Result<Self, Self::Error> {
-        let freq = args.parsed.get("freq").map_or_else(
-            || Ok(100),
-            |v| {
+        let freq = args
+            .parsed
+            .get("freq")
+            .map(|v| {
                 if let Value::Integer(v) = v
                     && *v > 0
                 {
@@ -38,19 +38,22 @@ impl TryFrom<&Args> for PluginArgs {
                 } else {
                     bail!("invalid frequency")
                 }
-            },
-        )?;
-        let out_path = args.parsed.get("out").map_or_else(
-            || Ok("qperf.data".to_string()),
-            |s| {
+            })
+            .transpose()?
+            .unwrap_or(99);
+        let out = args
+            .parsed
+            .get("out")
+            .map(|s| {
                 if let Value::String(s) = s {
                     Ok(s.clone())
                 } else {
                     bail!("invalid output path")
                 }
-            },
-        )?;
-        Ok(PluginArgs { freq, out_path })
+            })
+            .transpose()?
+            .unwrap_or("qperf.bin".to_string());
+        Ok(PluginArgs { freq, out })
     }
 }
 
@@ -121,7 +124,7 @@ impl HasCallbacks for Profiler {
         _id: PluginId,
         tb: TranslationBlock,
     ) -> qemu_plugin::Result<()> {
-        const KERNEL_MASK: u64 = 0xffff_0000_0000_0000;
+        const KERNEL_MASK: u64 = 1 << 63;
 
         let ip = tb.vaddr();
         if ip & KERNEL_MASK != 0 {
@@ -154,10 +157,9 @@ impl Register for Profiler {
 
         let (tx, rx) = unbounded();
         spawn(move || {
-            let file = File::create(args.out_path).expect("Failed to create output file");
-            let mut writer = BufWriter::new(file);
+            let mut file = File::create(args.out).expect("Failed to create output file");
             while let Ok(event) = rx.recv() {
-                bincode::encode_into_std_write(event, &mut writer, bincode::config::standard())
+                bincode::encode_into_std_write(event, &mut file, bincode::config::standard())
                     .expect("Failed to write to output file");
             }
         });
