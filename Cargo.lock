@@ -338,6 +338,8 @@ dependencies = [
  "addr2line",
  "bincode",
  "clap",
+ "object",
+ "rustc-demangle",
 ]
 
 [[package]]

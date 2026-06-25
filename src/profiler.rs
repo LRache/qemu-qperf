@@ -1,18 +1,15 @@
-use std::{
-    fs::File,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    thread::spawn,
-    time::{Duration, Instant},
-};
+use std::fs::File;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::thread::spawn;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, bail};
 use crossbeam_channel::{Sender, bounded, unbounded};
+use qemu_plugin::install::{Args, Info, Value};
+use qemu_plugin::plugin::{HasCallbacks, Register};
 use qemu_plugin::{
-    CallbackFlags, PluginId, TranslationBlock, VCPUIndex,
-    install::{Args, Info, Value},
-    plugin::{HasCallbacks, Register},
-    qemu_plugin_get_registers, qemu_plugin_read_memory_vaddr,
+    CallbackFlags, PluginId, TranslationBlock, VCPUIndex, qemu_plugin_get_registers, qemu_plugin_read_memory_vaddr,
 };
 use zerocopy::IntoBytes;
 
@@ -95,9 +92,7 @@ impl Profiler {
 
         while fp > 0 && fp % 8 == 0 {
             let mut frame = Frame::default();
-            if qemu_plugin_read_memory_vaddr(fp - self.target.fp_offset(), frame.as_mut_bytes())
-                .is_err()
-            {
+            if qemu_plugin_read_memory_vaddr(fp - self.target.fp_offset(), frame.as_mut_bytes()).is_err() {
                 break;
             };
             if qemu_plugin_read_memory_vaddr(frame.ip, &mut [0; 8]).is_err() {
@@ -120,11 +115,7 @@ impl HasCallbacks for Profiler {
         Ok(())
     }
 
-    fn on_translation_block_translate(
-        &mut self,
-        _id: PluginId,
-        tb: TranslationBlock,
-    ) -> qemu_plugin::Result<()> {
+    fn on_translation_block_translate(&mut self, _id: PluginId, tb: TranslationBlock) -> qemu_plugin::Result<()> {
         const KERNEL_MASK: u64 = 1 << 63;
 
         let ip = tb.vaddr();

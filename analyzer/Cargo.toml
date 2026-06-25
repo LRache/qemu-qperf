@@ -7,3 +7,5 @@ edition = "2024"
 addr2line = "0.25.0"
 bincode.workspace = true
 clap = { version = "4.5.45", features = ["derive"] }
+object = "0.37.3"
+rustc-demangle = "0.1.26"
