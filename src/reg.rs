@@ -1,4 +1,5 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use anyhow::{Context, anyhow, bail};
 use qemu_plugin::RegisterDescriptor;
@@ -9,11 +10,7 @@ pub struct AllRegs(BTreeMap<String, RegisterDescriptor<'static>>);
 
 impl AllRegs {
     pub fn read(&self, name: &str) -> anyhow::Result<u64> {
-        let value = self
-            .0
-            .get(name)
-            .context(format!("Register {name} not found"))?
-            .read()?;
+        let value = self.0.get(name).context(format!("Register {name} not found"))?.read()?;
 
         value
             .try_into()
@@ -24,10 +21,7 @@ impl AllRegs {
 
 impl From<Vec<RegisterDescriptor<'static>>> for AllRegs {
     fn from(regs: Vec<RegisterDescriptor<'static>>) -> Self {
-        let map = regs
-            .into_iter()
-            .map(|reg| (reg.name.clone(), reg))
-            .collect();
+        let map = regs.into_iter().map(|reg| (reg.name.clone(), reg)).collect();
         AllRegs(map)
     }
 }

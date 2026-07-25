@@ -43,13 +43,31 @@ $ cargo install --path analyzer
 $ qemu-system-xxx ... -plugin path/to/libqperf.so
 ```
 
-By default, it will sample at 99Hz and save intermediate results in `qperf.bin`. You can pass optional arguments to change this behaviour:
+By default, it will sample each vCPU at 99Hz and save intermediate results in `qperf.bin`. You can pass optional arguments to change this behaviour:
 
 ```bash
 $ qemu-system-xxx ... -plugin path/to/libqperf.so,freq=101,out=kernel.bin
 ```
 
 This will change qperf to sample at 101Hz and save intermediate results in `kernel.bin`.
+
+### Gated sampling via control socket
+
+Pass `control=<path>` to make sampling start **disabled** and listen for commands on a Unix socket. Sampling only runs between `start` and `stop`, so you can profile a specific phase (e.g. boot, a benchmark) and skip the rest:
+
+```bash
+$ qemu-system-xxx ... -plugin path/to/libqperf.so,control=/tmp/qperf.sock
+```
+
+Drive it from another terminal with any line-based client (`nc -U`, `socat`, or a short script):
+
+```bash
+$ echo start  | socat - UNIX-CONNECT:/tmp/qperf.sock   # begin sampling
+$ echo status | socat - UNIX-CONNECT:/tmp/qperf.sock   # -> "enabled" / "disabled"
+$ echo stop   | socat - UNIX-CONNECT:/tmp/qperf.sock   # pause sampling
+```
+
+Supported commands (one per line, replied with a single line): `start`, `stop`, `status`, `exit`/`quit` (closes that connection). Unknown commands reply `err: unknown command: <cmd>`. Without `control=`, qperf samples continuously as before.
 
 ### 4. Run analyzer
 
@@ -71,6 +89,8 @@ $ qperf-analyzer -e path/to/kernel.elf path/to/qperf.bin path/to/result.folded
 ```
 
 This will dump the result in the [folded stacks](https://profilerpedia.markhansen.co.nz/formats/folded-stacks/) format.
+Samples are grouped under `[CPU N]` root frames by default. Pass `--aggregate` to merge all
+vCPUs into a single folded profile instead.
 
 ### 5. Visualization
 
